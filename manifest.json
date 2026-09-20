@@ -1,0 +1,9 @@
+{
+  "name": "Bob — Personal AI Assistant",
+  "short_name": "Bob",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#111113",
+  "theme_color": "#111113",
+  "description": "Bob personal AI assistant with memory, tasks, research, tools, learning and evaluation."
+}
