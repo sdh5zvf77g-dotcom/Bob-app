@@ -7125,8 +7125,8 @@
       return "You're welcome, " + name + ".";
     }
 
-    // "Think" alone or similar — do not dump random memory
-    if (/^(think|reason|reflect|ponder|hmm)\b$/i.test(lower) || lower === "...") {
+    // Think commands
+    if (/^(think|reason|reflect|ponder|hmm)\b$/i.test(lower)) {
       var prev = "";
       try {
         var msgs = state.messages || [];
@@ -7138,139 +7138,70 @@
         }
       } catch (ePrev) {}
       if (prev) {
-        return "**Thinking about your last message:**\n" + prev.slice(0, 220) +
-          (prev.length > 220 ? "…" : "") +
-          "\n\n**What stands out:**\n" +
-          "1. You want that topic understood — not a random fact.\n" +
-          "2. Restate your goal as one question, or say **decide / explain / plan / research**.\n" +
-          "3. I can reason step by step once the target is clear.";
+        return "**Thinking about:** " + prev.slice(0, 200) + "\n\nAsk me that as a full question and I will answer using facts I know, or say **research:** + topic.";
       }
-      return "I'm ready to **think with you**, but I need a target.\n\n" +
-        "Try:\n• **think about whether I should …**\n• **think step by step: …**\n• or a normal question (**why / how / what if …**)";
+      return "Ready to think. What should I think about? Ask a full question.";
     }
 
-    var aboutThink = lower.match(/^(?:think|reason|reflect)\s+(?:about|on|through)\s+(.+)/i) ||
-      lower.match(/^think\s+step\s+by\s+step\s*:?\s*(.+)/i);
+    var aboutThink = lower.match(/^(?:think|reason|reflect)\s+(?:about|on|through)\s+(.+)/i);
     if (aboutThink) {
-      var topic = String(aboutThink[1] || "").replace(/[?.!]+$/, "").trim();
-      return "**Thinking about:** " + topic + "\n\n**Steps:**\n" +
-        "1. Clarify the real question inside that topic.\n" +
-        "2. Separate what we know from what we don't.\n" +
-        "3. Weigh options or causes without inventing facts.\n" +
-        "4. Give a takeaway and one next action.\n\n" +
-        "**Takeaway:** Is this mainly a **decision**, an **explanation**, or a **plan**?\n" +
-        "Add constraints (time, people, goal) and I'll go deeper.";
+      var topic = aboutThink[1].replace(/[?.!]+$/, "").trim();
+      return "**Thinking about:** " + topic + "\n\n1. Goal: answer that clearly.\n2. Use known facts, then reason.\n3. If thin, research or AI backend helps.\n\nAsk the full question about it.";
     }
 
     var expr = raw.match(/(\d+(?:\.\d+)?\s*[\+\-\*\/×÷x]\s*\d+(?:\.\d+)?(?:\s*[\+\-\*\/×÷x]\s*\d+(?:\.\d+)?)*)/);
     if (expr && typeof evalSimpleMath === "function") {
       var val = evalSimpleMath(expr[1]);
       if (val !== null) {
-        return "You asked about **" + expr[1].trim() + "**.\n\n**Answer: " + val + "**\n\n(Order of operations: ×÷ before +-.)";
+        return "You asked about **" + expr[1].trim() + "**.\n\n**Answer: " + val + "**";
       }
     }
 
-    if (/\b(what time|current time|time is it|what's the time|whats the time)\b/i.test(lower)) {
-      if (typeof formatLocalNow === "function") {
-        return "Local time (" + (typeof getTimezone === "function" ? getTimezone() : "") + "): **" + formatLocalNow() + "**.";
-      }
+    if (/\b(what time|current time|time is it)\b/i.test(lower)) {
+      if (typeof formatLocalNow === "function") return "Local time: **" + formatLocalNow() + "**.";
     }
-    if (/\b(what day|what's the date|whats the date|date today)\b/i.test(lower)) {
-      if (typeof formatLocalNow === "function") {
-        return "Today is **" + formatLocalNow() + "**.";
-      }
+    if (/\b(what day|date today|what's the date)\b/i.test(lower)) {
+      if (typeof formatLocalNow === "function") return "Today is **" + formatLocalNow() + "**.";
     }
-
     if (/what do you know about me|what have you learned|what do you remember/i.test(lower)) {
       if (typeof buildMemory === "function") return buildMemory(name, stage || getStage());
     }
 
-    if (/^how (do|to|can|should)\b/i.test(lower) || /\bhow do i\b/i.test(lower)) {
-      var goal = raw.replace(/^how (do i|do you|to|can i|should i)\s+/i, "").replace(/\?$/, "").trim();
-      return "You asked how to **" + (goal || "do that") + "**.\n\n**Approach:**\n" +
-        "1. Clarify the exact outcome.\n2. Smallest next action today.\n3. Do it, then adjust.\n\n" +
-        "Share constraints and I'll be more specific. Or say **research: " + (goal || "topic").slice(0, 40) + "**.";
-    }
-
-    if (/^why\b/i.test(lower) || /\bwhy (is|are|do|does|did|can|should)\b/i.test(lower)) {
-      return "You're asking **why** — I'll stay on that.\n\n" +
-        "1. Factual why → say **research: " + raw.replace(/\?/g, "").slice(0, 50) + "**\n" +
-        "2. Personal why → give the situation in one sentence.\n\nWhich kind is this?";
-    }
-
-    if (/^(what is|what's|whats|who is|who's|whos|what are|where is)\b/i.test(lower)) {
-      var topic2 = raw.replace(/^(what is|what's|whats|who is|who's|whos|what are|where is)\s+/i, "").replace(/\?+$/, "").trim();
-      var factHit = "";
-      try {
-        var words = topic2.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(function(w) { return w.length > 2; });
-        var fl = state.facts || [];
-        var best = 0;
-        for (var fi = 0; fi < fl.length; fi++) {
-          var ft = String(fl[fi]).toLowerCase();
-          var hits = 0;
-          for (var wi = 0; wi < words.length; wi++) if (ft.indexOf(words[wi]) !== -1) hits++;
-          if (hits > best) { best = hits; factHit = String(fl[fi]); }
-        }
-        if (best < 1) factHit = "";
-      } catch (e3) {}
-      if (factHit) {
-        return "You asked: **" + raw + "**\n\n**Answer:** " + factHit;
-      }
-      return "You asked: **" + raw + "**\n\nI don't have a strong local match yet. Say **research: " + topic2.slice(0, 60) + "** or enable an AI backend for a full explanation.";
-    }
-
-    var memLine = "";
+    // Keyword answer from loaded knowledge pack facts
     try {
-      if (typeof memoryContextFor === "function" && raw.length >= 12) {
-        var mc = memoryContextFor(raw);
-        var needM = raw.length < 20 ? 0.55 : 0.45;
-        if (mc && mc.hits && mc.hits[0] && mc.hits[0].score > needM) {
-          memLine = mc.hits[0].item && mc.hits[0].item.text;
+      var stop = {the:1,and:1,for:1,are:1,was:1,what:1,who:1,how:1,why:1,when:1,where:1,with:1,from:1,that:1,this:1,have:1,been:1,will:1,your:1,you:1,about:1,into:1,just:1,like:1,me:1,my:1,a:1,an:1,is:1,it:1,to:1,of:1,in:1,on:1,or:1,do:1,does:1,can:1};
+      var qWords = lower.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(function(w) { return w.length > 2 && !stop[w]; });
+      if (qWords.length) {
+        var bestFact = null, bestScore = 0;
+        (state.facts || []).forEach(function(f) {
+          var ft = String(f).toLowerCase();
+          var sc = 0;
+          qWords.forEach(function(w) { if (ft.indexOf(w) !== -1) sc++; });
+          if (sc > bestScore) { bestScore = sc; bestFact = f; }
+        });
+        (state.knowledge || []).forEach(function(kitem) {
+          var ft = String((kitem.query || "") + " " + (kitem.summary || "")).toLowerCase();
+          var sc = 0;
+          qWords.forEach(function(w) { if (ft.indexOf(w) !== -1) sc += 1.5; });
+          if (sc > bestScore) { bestScore = sc; bestFact = (kitem.summary || kitem.query); }
+        });
+        if (bestScore >= 2 && bestFact) {
+          return "**Your question:** " + raw + "\n\n**Answer:**\n" + bestFact;
         }
       }
-    } catch (e2) {}
+    } catch (eSearch) {}
 
-    var isQ = /\?/.test(raw) || /^(who|what|when|where|why|how|is|are|can|do|does|did|will|should)\b/i.test(lower);
     if (isQ) {
-      var parts = [];
-      parts.push("**Your question:** " + raw);
-      if (memLine) parts.push("Related: " + memLine.slice(0, 160));
-      var factHit2 = "";
-      try {
-        var words2 = lower.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(function(w) { return w.length > 3; });
-        var fl2 = state.facts || [];
-        for (var fj = 0; fj < fl2.length && !factHit2; fj++) {
-          var ft2 = String(fl2[fj]).toLowerCase();
-          var h2 = 0;
-          for (var wj = 0; wj < words2.length; wj++) if (ft2.indexOf(words2[wj]) !== -1) h2++;
-          if (h2 >= 2 || (words2.length === 1 && h2 === 1)) factHit2 = String(fl2[fj]);
-        }
-      } catch (eF) {}
-      parts.push("");
-      parts.push("**Answer:**");
-      if (factHit2) parts.push(factHit2);
-      else if (/goal|plan|should i|what should/i.test(lower) && state.goals && state.goals[0]) {
-        parts.push("Given your goal **" + state.goals[0].slice(0, 60) + "**, take the smallest next step toward that.");
-      } else {
-        parts.push("No strong local fact match yet. Say **research: " + raw.replace(/\?/g, "").slice(0, 50) + "** or enable an AI backend.");
-      }
-      return parts.join("\n");
+      return "**Your question:** " + raw + "\n\nI need more specific terms, **research: your topic**, or an AI backend in Settings.\n\nI will not pad with unrelated facts.";
     }
 
-    if (raw.length < 20) {
-      return "Got **" + raw + "**. Add a question or say **think about …** so I can reason instead of guessing.";
+    if (raw.length < 24) {
+      return "Got it (" + raw + "). Ask a full question and I'll answer it directly.";
     }
 
-    var reply = [];
-    reply.push("Understood: \"" + raw.slice(0, 180) + (raw.length > 180 ? "…" : "") + "\"");
-    if (memLine) reply.push("Related memory: " + memLine.slice(0, 140));
-    if (state.moods && state.moods[0] && /feel|tired|stress|sad|happy|anxious/i.test(lower)) {
-      reply.push("You're in a **" + state.moods[0] + "** space. What would \"slightly better\" look like in the next hour?");
-    } else {
-      reply.push("Tell me the outcome you want: **decide**, **explain**, **plan**, or **research**.");
-    }
-    return reply.join("\n\n");
+    return "Understood: \"" + raw.slice(0, 160) + "\"\n\nWhat should I do — answer a question, make a plan, or research it?";
   }
+
 
   function buildVariedReply(userText, name, stage, rules) {
     var lower = userText.toLowerCase().trim();
