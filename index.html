@@ -139,21 +139,43 @@
     .radio-online-item small { display:block; color:var(--muted); font-size:.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .radio-online-item .play { background:var(--acc); color:#052e16; border:0; border-radius:9px; padding:7px 10px; font-weight:700; }
     @media (max-width: 960px) {
-      main { grid-template-columns: 1fr; }
-      .sidebar { display: none; }
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        height: 100%;
+        min-height: 0;
+      }
+      .chat-area {
+        width: 100%;
+        max-width: 100%;
+        min-height: 0;
+        height: 100%;
+      }
+      .sidebar {
+        display: none !important;
+      }
       .sidebar.open {
-        display: flex; position: fixed; inset: 0; z-index: 50;
-        background: var(--bg); animation: slideIn 0.2s ease;
-        padding-top: max(12px, env(safe-area-inset-top));
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
-        padding-left: max(12px, env(safe-area-inset-left));
-        padding-right: max(12px, env(safe-area-inset-right));
+        display: flex !important;
+        flex-direction: column;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 200 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        background: var(--bg) !important;
+        border-left: none !important;
+        animation: slideIn 0.2s ease;
+        padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .sidebar-top-row {
         position: sticky; top: 0; z-index: 5;
-        background: var(--bg2);
-        padding: 8px 4px 12px;
-        margin: -4px -4px 4px;
+        background: var(--bg);
+        padding: 4px 0 12px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--border);
       }
       #sidebarClose {
         width: 48px !important; height: 48px !important;
@@ -163,6 +185,30 @@
         background: var(--soft);
         color: var(--text);
         flex-shrink: 0;
+      }
+      /* Input always usable — full width, send pinned */
+      .input-area {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 8px 10px max(16px, env(safe-area-inset-bottom)) !important;
+        z-index: 30;
+        background: var(--bg);
+      }
+      .input-row {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        min-height: 56px;
+        gap: 4px;
+      }
+      .messages {
+        max-width: 100% !important;
+        padding: 14px 14px 24px;
+      }
+      .quick-prompts {
+        max-width: 100%;
+        padding: 0 2px;
       }
     }
     @keyframes slideIn { from { transform: translateX(12px); opacity: 0.8; } to { transform: none; opacity: 1; } }
@@ -260,6 +306,24 @@
     }
     .msg .sources a { color: #86efac; text-decoration: none; }
     .msg .sources a:hover { text-decoration: underline; }
+    .msg a.md-link {
+      color: #86efac; text-decoration: underline; text-underline-offset: 2px;
+      word-break: break-all; font-weight: 600;
+    }
+    .msg a.md-link:hover { color: #bbf7d0; }
+    .msg .md-h { display: block; font-size: 1.15em; color: var(--acc); margin: 0.4em 0 0.2em; }
+    .book-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .book-actions a, .book-actions button {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 12px 16px; border-radius: 12px; font-weight: 700; font-size: 0.95rem;
+      border: 0; cursor: pointer; text-decoration: none; font-family: inherit;
+    }
+    .book-actions a.primary, .book-actions button.primary {
+      background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #052e16;
+    }
+    .book-actions button.secondary {
+      background: var(--soft); color: var(--text); border: 1px solid var(--border);
+    }
     .msg img.photo { max-width: 100%; border-radius: 12px; margin-top: 8px; display: block; }
     .msg .md-p { margin: 0 0 0.6em; }
     .msg .md-p:last-child { margin-bottom: 0; }
@@ -1165,7 +1229,7 @@
   <script>
 
 (function () {
-  const VERSION = "19.1";
+  const VERSION = "19.3";
   const STAGES = [
     { name: "Seed", emoji: "🌰", min: 0, desc: "Waiting for light" },
     { name: "Bob", emoji: "😊", min: 1, desc: "Just beginning" },
@@ -1176,7 +1240,7 @@
     { name: "Ancient Tree", emoji: "🌲", min: 60, desc: "Deep roots" },
     { name: "Legendary", emoji: "✨🌳", min: 100, desc: "A legend together" }
   ];
-  const QUICK = ["Morning briefing", "My tasks", "Recommend a book", "Translate: ", "Review flashcards", "Quiz me", "Research: ", "Inbox", "Health check", "Self model", "Play radio"];
+  const QUICK = ["Morning briefing", "My tasks", "Teach me", "Practice math", "Teach me Thai", "Recommend a book", "Translate: ", "Quiz me", "Research: ", "Play radio"];
 
   // Free internet radio — curated public streams (SomaFM, Radio Paradise, Radio France, BBC, NPR)
   var RADIO_STATIONS = [
@@ -1331,6 +1395,7 @@
       if (!Array.isArray(state.reflections)) state.reflections = [];
       if (!Array.isArray(state.dailyAudits)) state.dailyAudits = [];
       if (!Array.isArray(state.inbox)) state.inbox = [];
+      if (!state.teacher) state.teacher = {};
       if (!state.topicMastery || typeof state.topicMastery !== "object") state.topicMastery = {};
       // Refresh embedding vectors to 128-d scheme when missing/mismatched
       if (Array.isArray(state.memoryIndex) && typeof embedText === "function") {
@@ -1502,11 +1567,21 @@
 
     function formatText(t) {
       var e = escapeHtml(t);
+      // Markdown links [label](url) → clickable anchors (must run before other replaces)
+      e = e.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
+      // Bare URLs
+      e = e.replace(/(^|[^"'>])(https?:\/\/[^\s<]+)/g, function(_, pre, url) {
+        var clean = url.replace(/[.,;:!?)]+$/, "");
+        var trail = url.slice(clean.length);
+        return pre + '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" class="md-link">' + clean + "</a>" + trail;
+      });
       e = e.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      e = e.replace(/(^|\n)###\s+(.+?)(?=\n|$)/g, '$1<strong class="md-h">$2</strong>');
       e = e.replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
-      // simple bullets
       e = e.replace(/(^|\n)[•\-\*] (.+)/g, "$1• $2");
-      return e.replace(/\n/g, "<br>");
+      e = e.replace(/\n/g, "<br>");
+      return e;
     }
 
     var htmlOut = "";
@@ -7143,11 +7218,11 @@
       const g = await fetchJson(gurl, 12000);
       ((g && g.results) || []).slice(0, 6).forEach(function(b) {
         var formats = b.formats || {};
+        var textUrl = formats["text/plain; charset=utf-8"] || formats["text/plain"] || formats["text/plain; charset=us-ascii"] || "";
         var readUrl = formats["text/html"] || formats["text/html; charset=utf-8"] ||
-          formats["application/epub+zip"] || formats["text/plain; charset=utf-8"] ||
-          formats["text/plain"] || ("https://www.gutenberg.org/ebooks/" + b.id);
+          formats["application/epub+zip"] || textUrl || ("https://www.gutenberg.org/ebooks/" + b.id);
         var authors = (b.authors || []).map(function(a) { return a.name; }).join(", ");
-        results.push({ title: b.title, authors: authors || "Unknown", source: "Project Gutenberg (free)", readUrl: readUrl });
+        results.push({ title: b.title, authors: authors || "Unknown", source: "Project Gutenberg (free)", readUrl: readUrl, textUrl: textUrl || "" });
       });
     } catch (e) { console.warn("Gutendex", e); }
     try {
@@ -7193,16 +7268,17 @@
     var lines = [
       "Here are **free books** for **" + focus + "**:",
       "",
-      "_Reply with a number to select: **1**, **2**, **read 3**, …_",
+      "Reply with a number to select — e.g. **1** or **read 2**.",
+      "After selecting, **tap the green Open link**, or say **open book** / **read aloud**.",
       ""
     ];
     list.forEach(function(b, idx) {
       lines.push("**" + (idx + 1) + ".** " + b.title);
-      lines.push("   " + (b.authors || "Unknown") + " · " + (b.source || "free"));
-      if (b.readUrl) lines.push("   [Open link](" + b.readUrl + ")");
+      lines.push((b.authors || "Unknown") + " · " + (b.source || "free"));
+      if (b.readUrl) lines.push("[Open link](" + b.readUrl + ")");
       lines.push("");
     });
-    lines.push("Say **read 1** (or just **1**) to choose that book.");
+    lines.push("Try: **1** → then **open book** or **read aloud**.");
     return lines.join("\n");
   }
 
@@ -7215,7 +7291,7 @@
     if (typeof indexMemory === "function") indexMemory("Selected book: " + b.title + " by " + (b.authors || "?"), "book");
     save();
     var lines = [
-      "Selected **#" + n + "**:",
+      "Selected **#" + n + "** — ready to open:",
       "",
       "### " + b.title,
       "*" + (b.authors || "Unknown author") + "*",
@@ -7223,11 +7299,89 @@
       "Source: " + (b.source || "free ebook")
     ];
     if (b.readUrl) {
-      lines.push("", "**Read online:** [Open this book](" + b.readUrl + ")");
+      lines.push("", "**Tap the green link to open the book in your browser:**");
+      lines.push("[Open this book](" + b.readUrl + ")");
+      lines.push("", "Or say **open book** / **read it** / **read aloud**.");
+      lines.push("_Bob can read a short sample aloud if plain text is available (Gutenberg)._");
     } else {
       lines.push("", "No direct link — search the title on Project Gutenberg or Open Library.");
     }
     return lines.join("\n");
+  }
+
+  async function readSelectedBook(mode) {
+    mode = mode || "open";
+    var b = state.selectedBook;
+    if (!b) {
+      if ((state.pendingBooks || []).length) {
+        return "Pick a book first — reply with **1**, **2**, or **read 3**.";
+      }
+      return "No book selected yet. Say **recommend a book** and then pick a number.";
+    }
+    var title = b.title || "this book";
+    if (mode === "open" || mode === "link") {
+      if (!b.readUrl) return "I don't have an online link for **" + title + "**.";
+      return "Open **" + title + "** here:\n\n[Open this book](" + b.readUrl + ")\n\n_Tap the green link._\n\nSay **read aloud** for a spoken sample (when text is available).";
+    }
+    // read aloud / sample
+    setResearch(true, "Fetching a sample of " + title.slice(0, 40) + "…");
+    try {
+      var sample = await fetchBookSample(b);
+      setResearch(false);
+      if (!sample) {
+        if (b.readUrl) {
+          return "I couldn't load plain text for a sample of **" + title + "** (many Archive/Open Library pages block in-browser fetch).\n\n**Open it to read:**\n[Open this book](" + b.readUrl + ")\n\n_Tap the link — it opens in a new tab._";
+        }
+        return "No readable sample found for **" + title + "**.";
+      }
+      var speakText = sample.slice(0, 900);
+      if (typeof speak === "function") speak(speakText);
+      return "Reading a sample from **" + title + "**" + (b.authors ? " by " + b.authors : "") + ":\n\n" + sample.slice(0, 1400) + (sample.length > 1400 ? "\n\n_…_" : "") + (b.readUrl ? "\n\n[Continue reading online](" + b.readUrl + ")" : "");
+    } catch (e) {
+      setResearch(false);
+      return "Couldn't fetch a sample. " + (b.readUrl ? ("Open the book instead:\n[Open this book](" + b.readUrl + ")") : "");
+    }
+  }
+
+  async function fetchBookSample(b) {
+    if (!b) return null;
+    var urls = [];
+    if (b.textUrl) urls.push(b.textUrl);
+    if (b.readUrl) {
+      // Gutenberg ebook page → try common text paths
+      var m = String(b.readUrl).match(/gutenberg\.org\/ebooks\/(\d+)/i);
+      if (m) {
+        urls.push("https://www.gutenberg.org/cache/epub/" + m[1] + "/pg" + m[1] + ".txt");
+        urls.push("https://www.gutenberg.org/files/" + m[1] + "/" + m[1] + "-0.txt");
+        urls.push("https://www.gutenberg.org/files/" + m[1] + "/" + m[1] + ".txt");
+      }
+      if (/\.txt(\?|$)/i.test(b.readUrl) || /text\/plain/i.test(b.readUrl)) urls.push(b.readUrl);
+    }
+    for (var i = 0; i < urls.length; i++) {
+      try {
+        var ctrl = new AbortController();
+        var t = setTimeout(function(){ ctrl.abort(); }, 12000);
+        var res = await fetch(urls[i], { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) continue;
+        var raw = await res.text();
+        if (!raw || raw.length < 200) continue;
+        // Strip Gutenberg header noise
+        var body = raw.replace(/\r/g, "");
+        var startMark = body.search(/\*\*\*\s*START OF/i);
+        if (startMark >= 0) {
+          body = body.slice(startMark);
+          var nl = body.indexOf("\n");
+          if (nl > 0) body = body.slice(nl + 1);
+        }
+        body = body.replace(/\n{3,}/g, "\n\n").trim();
+        // First few paragraphs
+        var paras = body.split(/\n\n+/).filter(function(p){ return p.replace(/\s/g,"").length > 40; });
+        var out = paras.slice(0, 4).join("\n\n");
+        return out.slice(0, 2000);
+      } catch (e) { /* try next */ }
+    }
+    return null;
   }
 
 
@@ -7319,12 +7473,368 @@
     return reply;
   }
 
+
+  // ========== TEACHER MODE (math + languages) ==========
+  var TEACHER_MATH_TOPICS = ["arithmetic", "fractions", "decimals", "percentages", "algebra", "geometry", "word problems"];
+  var TEACHER_LANG_SKILLS = ["vocabulary", "phrases", "grammar", "listening", "quiz"];
+
+  function isTeacherRequest(text) {
+    return /\b(teach|tutor|lesson|explain (to me|how|this)|help me (learn|study|understand)|practice|quiz me on|homework|schoolwork)\b/i.test(text || "")
+      || /\b(math|maths|algebra|fraction|geometry|multiply|divide|equation)\b/i.test(text || "")
+         && /\b(teach|learn|practice|explain|help|how (do|to)|what is)\b/i.test(text || "")
+      || /\b(learn|practice|teach).{0,20}\b(spanish|french|german|thai|japanese|chinese|korean|english|italian|portuguese|arabic|vietnamese|indonesian)\b/i.test(text || "")
+      || /\b(spanish|french|german|thai|japanese|chinese|korean|vocabulary|grammar).{0,20}\b(lesson|practice|quiz|teach|learn)\b/i.test(text || "");
+  }
+
+  function parseTeacherIntent(text) {
+    var lower = String(text || "").toLowerCase();
+    var intent = { type: null, subject: null, topic: null, level: "beginner", lang: null };
+
+    // Language teaching
+    var langMap = {
+      spanish: "es", french: "fr", german: "de", italian: "it", portuguese: "pt",
+      thai: "th", japanese: "ja", korean: "ko", chinese: "zh-CN", arabic: "ar",
+      vietnamese: "vi", indonesian: "id", english: "en", hindi: "hi", dutch: "nl",
+      russian: "ru", turkish: "tr", malay: "ms"
+    };
+    for (var name in langMap) {
+      if (lower.indexOf(name) !== -1) {
+        intent.lang = langMap[name];
+        intent.langName = name.charAt(0).toUpperCase() + name.slice(1);
+        break;
+      }
+    }
+    if (intent.lang || /\b(vocabulary|grammar|phrase|pronounce|conjugate)\b/i.test(lower)) {
+      intent.type = "language";
+      if (/\bquiz\b/i.test(lower)) intent.topic = "quiz";
+      else if (/\bgrammar\b/i.test(lower)) intent.topic = "grammar";
+      else if (/\bphrase|conversation\b/i.test(lower)) intent.topic = "phrases";
+      else intent.topic = "vocabulary";
+      if (!intent.lang) intent.lang = (state.settings && state.settings.translateLang) || "es";
+      if (!intent.langName) intent.langName = (TRANSLATE_LANG_NAMES && TRANSLATE_LANG_NAMES[intent.lang]) || intent.lang;
+      return intent;
+    }
+
+    // Math teaching
+    if (/\b(math|maths|algebra|fraction|decimal|percent|geometry|equation|multiply|divide|addition|subtraction|arithmetic|calculate|solve)\b/i.test(lower)
+        || /\d+\s*[\+\-\*\/x×÷]\s*\d+/.test(lower)
+        || /\bteach me\b/i.test(lower) && /\bnumber|sum|times|divide\b/i.test(lower)) {
+      intent.type = "math";
+      if (/\bfraction\b/i.test(lower)) intent.topic = "fractions";
+      else if (/\balgebra|equation|x\s*=\b/i.test(lower)) intent.topic = "algebra";
+      else if (/\bpercent|%/i.test(lower)) intent.topic = "percentages";
+      else if (/\bgeometry|angle|triangle|area|perimeter\b/i.test(lower)) intent.topic = "geometry";
+      else if (/\bdecimal\b/i.test(lower)) intent.topic = "decimals";
+      else if (/\b(practice|quiz|problem|exercise)\b/i.test(lower)) intent.topic = "practice";
+      else intent.topic = "arithmetic";
+      if (/\b(advanced|hard|difficult)\b/i.test(lower)) intent.level = "advanced";
+      else if (/\b(intermediate|medium)\b/i.test(lower)) intent.level = "intermediate";
+      return intent;
+    }
+
+    if (/\b(teach|tutor|lesson|help me learn)\b/i.test(lower)) {
+      intent.type = "menu";
+      return intent;
+    }
+    return null;
+  }
+
+  function evalSimpleMath(expr) {
+    try {
+      var cleaned = String(expr).replace(/×/g, "*").replace(/÷/g, "/").replace(/x/gi, "*")
+        .replace(/[^0-9+\-*/().\s]/g, "");
+      if (!cleaned.trim()) return null;
+      // Safe-ish eval for simple arithmetic only
+      if (!/^[\d+\-*/().\s]+$/.test(cleaned)) return null;
+      var val = Function('"use strict"; return (' + cleaned + ")")();
+      if (typeof val !== "number" || !isFinite(val)) return null;
+      return val;
+    } catch (e) { return null; }
+  }
+
+  function buildMathLesson(intent, userText) {
+    var topic = intent.topic || "arithmetic";
+    var level = intent.level || "beginner";
+    var lines = [];
+    lines.push("**Math teacher mode** · " + topic + " (" + level + ")");
+    lines.push("");
+
+    // Direct calculation if expression present
+    var exprMatch = userText.match(/(\d+(?:\.\d+)?\s*[\+\-\*\/×÷x]\s*\d+(?:\.\d+)?(?:\s*[\+\-\*\/×÷x]\s*\d+(?:\.\d+)?)*)/);
+    if (exprMatch) {
+      var result = evalSimpleMath(exprMatch[1]);
+      lines.push("Problem: `" + exprMatch[1].trim() + "`");
+      lines.push("");
+      lines.push("**Step by step:**");
+      lines.push("1. Identify the operations (left to right for ×÷, then +-).");
+      if (result !== null) {
+        lines.push("2. Compute carefully.");
+        lines.push("3. **Answer: " + result + "**");
+      } else {
+        lines.push("2. I couldn't evaluate that expression — try a simpler form like `12 * 4`.");
+      }
+      lines.push("");
+      lines.push("Want another? Say **practice math** or give me a new problem.");
+      state.teacher = state.teacher || {};
+      state.teacher.lastSubject = "math";
+      state.teacher.lastTopic = topic;
+      save();
+      return lines.join("\n");
+    }
+
+    if (topic === "fractions") {
+      lines.push("A **fraction** is part of a whole: numerator / denominator.");
+      lines.push("");
+      lines.push("Example: **3/4** means 3 parts out of 4.");
+      lines.push("• Same denominator → add numerators: 1/5 + 2/5 = **3/5**");
+      lines.push("• Multiply: 1/2 × 3/4 = **3/8**");
+      lines.push("");
+      lines.push("**Try this:** What is 1/2 + 1/4?");
+      lines.push("Say your answer, or **explain fractions more**.");
+    } else if (topic === "percentages") {
+      lines.push("**Percent** means per 100. 25% = 25/100 = 0.25.");
+      lines.push("");
+      lines.push("Example: 20% of 50 → 0.20 × 50 = **10**");
+      lines.push("");
+      lines.push("**Try this:** What is 15% of 80?");
+    } else if (topic === "algebra") {
+      lines.push("In algebra, a letter stands for an unknown number.");
+      lines.push("");
+      lines.push("Example: solve **x + 5 = 12**");
+      lines.push("1. Subtract 5 from both sides");
+      lines.push("2. x = 12 − 5");
+      lines.push("3. **x = 7**");
+      lines.push("");
+      lines.push("**Try this:** Solve x − 3 = 10");
+    } else if (topic === "geometry") {
+      lines.push("**Geometry** studies shapes and space.");
+      lines.push("• Rectangle area = length × width");
+      lines.push("• Triangle area = ½ × base × height");
+      lines.push("• Circle area = π × r²");
+      lines.push("");
+      lines.push("**Try this:** Area of a rectangle 6 by 4?");
+    } else if (topic === "practice") {
+      var a = 2 + Math.floor(Math.random() * 12);
+      var b = 2 + Math.floor(Math.random() * 12);
+      var ops = level === "advanced" ? ["*", "/", "+"] : ["+", "-", "*"];
+      var op = ops[Math.floor(Math.random() * ops.length)];
+      state.teacher = state.teacher || {};
+      state.teacher.pendingAnswer = evalSimpleMath(a + op + b);
+      state.teacher.pendingProblem = a + " " + op + " " + b;
+      save();
+      lines.push("**Practice problem:**");
+      lines.push("What is **" + a + " " + (op === "*" ? "×" : op === "/" ? "÷" : op) + " " + b + "**?");
+      lines.push("");
+      lines.push("Reply with the number. Say **another** for a new one.");
+    } else {
+      lines.push("I'll teach step by step — short, clear, then a practice question.");
+      lines.push("");
+      lines.push("**Topics I can teach:**");
+      lines.push("• Arithmetic (+ − × ÷)");
+      lines.push("• Fractions & decimals");
+      lines.push("• Percentages");
+      lines.push("• Basic algebra");
+      lines.push("• Geometry basics");
+      lines.push("");
+      lines.push("Example: **teach me fractions** or **practice math** or `15 * 4`");
+    }
+    state.teacher = state.teacher || {};
+    state.teacher.lastSubject = "math";
+    state.teacher.lastTopic = topic;
+    save();
+    return lines.join("\n");
+  }
+
+  function buildLanguageLesson(intent, userText) {
+    var lang = intent.lang || "es";
+    var langName = intent.langName || (TRANSLATE_LANG_NAMES && TRANSLATE_LANG_NAMES[lang]) || lang;
+    var topic = intent.topic || "vocabulary";
+    var packs = {
+      es: {
+        vocabulary: [
+          ["hello", "hola"], ["thank you", "gracias"], ["please", "por favor"],
+          ["yes", "sí"], ["no", "no"], ["water", "agua"], ["friend", "amigo/amiga"],
+          ["good morning", "buenos días"], ["how are you?", "¿cómo estás?"]
+        ],
+        phrases: [
+          ["Where is the bathroom?", "¿Dónde está el baño?"],
+          ["How much is this?", "¿Cuánto cuesta?"],
+          ["I don't understand", "No entiendo"],
+          ["Can you help me?", "¿Me puedes ayudar?"]
+        ],
+        grammar: "Spanish nouns have gender (el/la). Verbs change with the subject: yo hablo, tú hablas, él habla."
+      },
+      th: {
+        vocabulary: [
+          ["hello", "สวัสดี (sawasdee)"], ["thank you", "ขอบคุณ (khop khun)"],
+          ["yes", "ใช่ (chai)"], ["no", "ไม่ (mai)"], ["water", "น้ำ (nam)"],
+          ["delicious", "อร่อย (aroi)"], ["how much?", "เท่าไหร่ (thao rai)"]
+        ],
+        phrases: [
+          ["How are you?", "สบายดีไหม (sabai dee mai)"],
+          ["My name is…", "ผม/ฉันชื่อ…"],
+          ["I would like…", "ขอ…"]
+        ],
+        grammar: "Thai does not use verb conjugation for tense the same way English does. Particles (ครับ/ค่ะ) show politeness."
+      },
+      fr: {
+        vocabulary: [
+          ["hello", "bonjour"], ["thank you", "merci"], ["please", "s'il vous plaît"],
+          ["yes", "oui"], ["no", "non"], ["water", "eau"], ["friend", "ami/amie"]
+        ],
+        phrases: [
+          ["How are you?", "Comment ça va ?"],
+          ["Where is…?", "Où est… ?"],
+          ["I don't speak French well", "Je ne parle pas bien français"]
+        ],
+        grammar: "French nouns are masculine/feminine (le/la). Adjectives usually agree in gender and number."
+      },
+      ja: {
+        vocabulary: [
+          ["hello", "こんにちは (konnichiwa)"], ["thank you", "ありがとう (arigatou)"],
+          ["yes", "はい (hai)"], ["no", "いいえ (iie)"], ["water", "水 (mizu)"]
+        ],
+        phrases: [
+          ["Nice to meet you", "はじめまして (hajimemashite)"],
+          ["Excuse me", "すみません (sumimasen)"]
+        ],
+        grammar: "Japanese uses particles (は, を, に) to mark grammar roles. Verbs come at the end of the sentence."
+      },
+      en: {
+        vocabulary: [
+          ["hello", "hello"], ["thank you", "thank you"], ["please", "please"]
+        ],
+        phrases: [
+          ["How are you?", "How are you?"],
+          ["Nice to meet you", "Nice to meet you"]
+        ],
+        grammar: "English uses word order (SVO). Verbs change for tense: walk / walked / will walk."
+      }
+    };
+    // Fallback generic pack using selected lang name
+    var pack = packs[lang] || packs.es;
+    var lines = [];
+    lines.push("**Language teacher** · " + langName + " · " + topic);
+    lines.push("");
+
+    if (topic === "grammar") {
+      lines.push(pack.grammar || ("Focus on basic " + langName + " sentence patterns."));
+      lines.push("");
+      lines.push("Say **vocabulary " + langName + "** or **phrases " + langName + "** or **quiz me " + langName + "**.");
+    } else if (topic === "phrases") {
+      lines.push("Useful " + langName + " phrases:");
+      lines.push("");
+      (pack.phrases || []).forEach(function(p, i) {
+        lines.push("**" + (i + 1) + ".** " + p[0] + " → **" + p[1] + "**");
+      });
+      lines.push("");
+      lines.push("Say **quiz me " + langName + "** to practice.");
+    } else if (topic === "quiz") {
+      var pool = (pack.vocabulary || []).concat(pack.phrases || []);
+      if (!pool.length) pool = packs.es.vocabulary;
+      var item = pool[Math.floor(Math.random() * pool.length)];
+      state.teacher = state.teacher || {};
+      state.teacher.pendingAnswer = String(item[1]).toLowerCase();
+      state.teacher.pendingAnswerAlt = String(item[0]).toLowerCase();
+      state.teacher.pendingProblem = "translate:" + item[0];
+      state.teacher.lastSubject = "language";
+      state.teacher.lastLang = lang;
+      save();
+      lines.push("**Quiz:** How do you say this in **" + langName + "**?");
+      lines.push("");
+      lines.push("→ **" + item[0] + "**");
+      lines.push("");
+      lines.push("Type your answer. Say **skip** for another question.");
+    } else {
+      lines.push("Core " + langName + " vocabulary:");
+      lines.push("");
+      (pack.vocabulary || []).slice(0, 8).forEach(function(p) {
+        lines.push("• **" + p[0] + "** → " + p[1]);
+      });
+      lines.push("");
+      lines.push("Say **phrases " + langName + "**, **grammar " + langName + "**, or **quiz me " + langName + "**.");
+    }
+    state.teacher = state.teacher || {};
+    state.teacher.lastSubject = "language";
+    state.teacher.lastLang = lang;
+    state.teacher.lastTopic = topic;
+    save();
+    return lines.join("\n");
+  }
+
+  function buildTeacherMenu() {
+    return [
+      "**Teacher mode** — I can teach like a patient tutor.",
+      "",
+      "**Math:**",
+      "• teach me fractions / algebra / percentages",
+      "• practice math",
+      "• or type a problem: `12 × 8`",
+      "",
+      "**Languages:**",
+      "• teach me Spanish / Thai / French / Japanese…",
+      "• vocabulary Thai · phrases Spanish · quiz me French",
+      "",
+      "What do you want to learn, Tristan?"
+    ].join("\n");
+  }
+
+  function checkTeacherAnswer(userText) {
+    var t = state.teacher;
+    if (!t || t.pendingAnswer == null) return null;
+    var ans = String(userText || "").trim().toLowerCase();
+    if (/^(skip|next|another)\b/i.test(ans)) {
+      if (t.lastSubject === "language") {
+        return buildLanguageLesson({ type: "language", lang: t.lastLang, langName: (TRANSLATE_LANG_NAMES || {})[t.lastLang], topic: "quiz" }, userText);
+      }
+      return buildMathLesson({ type: "math", topic: "practice", level: "beginner" }, userText);
+    }
+    var expected = String(t.pendingAnswer).toLowerCase().trim();
+    var alt = t.pendingAnswerAlt ? String(t.pendingAnswerAlt).toLowerCase() : "";
+    // Numeric compare
+    var numUser = parseFloat(ans.replace(/[^0-9.\-]/g, ""));
+    var numExp = parseFloat(expected);
+    var correct = false;
+    if (!isNaN(numUser) && !isNaN(numExp) && Math.abs(numUser - numExp) < 0.01) correct = true;
+    if (ans === expected || (alt && ans === alt)) correct = true;
+    if (!correct && expected.indexOf(ans) !== -1 && ans.length >= 3) correct = true;
+    t.pendingAnswer = null;
+    t.pendingProblem = null;
+    save();
+    if (correct) {
+      return "Yes — **correct**. Nice work, Tristan.\n\nSay **another** to practice more, or ask a new topic.";
+    }
+    return "Not quite. The answer was **" + expected + "**.\n\nSay **another** to try a new one, or ask me to **explain**.";
+  }
+
+  async function handleTeacher(userText) {
+    var check = checkTeacherAnswer(userText);
+    if (check) return check;
+    var intent = parseTeacherIntent(userText);
+    if (!intent) return null;
+    if (intent.type === "menu") return buildTeacherMenu();
+    if (intent.type === "math") return buildMathLesson(intent, userText);
+    if (intent.type === "language") return buildLanguageLesson(intent, userText);
+    return buildTeacherMenu();
+  }
+
+
   async function generateReply(userText) {
     const lower = userText.toLowerCase().trim();
     const name = "Tristan";
     state.name = "Tristan";
     const stage = getStage();
     learnFrom(userText);
+    // Teacher mode (math + languages) — before general chat
+    if (typeof handleTeacher === "function" && (isTeacherRequest(userText) || (state.teacher && state.teacher.pendingAnswer != null))) {
+      try {
+        var taught = await handleTeacher(userText);
+        if (taught) {
+          if (typeof bumpSkill === "function") bumpSkill("selfAwareness", 0.05);
+          return attachCoT(taught, typeof buildLocalCoT === "function" && shouldUseCoT(userText) ? buildLocalCoT(userText) : null);
+        }
+      } catch (eTeach) { console.warn("teacher", eTeach); }
+    }
     var useCoT = typeof shouldUseCoT === "function" && shouldUseCoT(userText);
     var cotSteps = useCoT && typeof buildLocalCoT === "function" ? buildLocalCoT(userText) : null;
     var intent = typeof parseAssistantIntent === "function" ? parseAssistantIntent(userText) : null;
@@ -7369,6 +7879,16 @@
       var pickM = String(userText || "").trim().match(/^(?:read|select|choose|open|book)?\s*#?([1-8])(?:\s*[-:).]*)?$/i);
       if (pickM) {
         return selectBookByIndex(parseInt(pickM[1], 10));
+      }
+    }
+    // Selected book actions: open / read aloud
+    if (state.selectedBook || (state.pendingBooks || []).length) {
+      var lowerBook = String(userText || "").toLowerCase().trim();
+      if (/^(open book|open it|open the book|open link|show link|book link)\b/i.test(lowerBook)) {
+        return await readSelectedBook("open");
+      }
+      if (/^(read it|read the book|read aloud|read sample|read to me|start reading|continue reading)\b/i.test(lowerBook)) {
+        return await readSelectedBook("aloud");
       }
     }
 
