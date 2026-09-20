@@ -1229,7 +1229,7 @@
   <script>
 
 (function () {
-  const VERSION = "19.3";
+  const VERSION = "19.4";
   const STAGES = [
     { name: "Seed", emoji: "🌰", min: 0, desc: "Waiting for light" },
     { name: "Bob", emoji: "😊", min: 1, desc: "Just beginning" },
@@ -3511,11 +3511,13 @@
     var t = String(text || "").trim();
     if (/^\s*(research|look up|lookup|search the web|search for|find out about)\b/i.test(t)) return true;
     if (/^https?:\/\//i.test(t)) return true;
-    if (/\b(latest|breaking|news about|current price|who invented|capital of|population of|when was)\b/i.test(t)) return true;
+    if (/\b(latest|breaking|news about|current price|who invented|capital of|population of|when was|how many|definition of)\b/i.test(t)) return true;
     if (/\b(wikipedia|according to sources|cite sources)\b/i.test(t)) return true;
-    if (/\b(what is|what's|who is|tell me about|explain)\b/i.test(t)) {
-      if (t.length < 80 && !/\b(feel|think|should I|my|I am|I'm)\b/i.test(t)) return true;
+    // Factual questions — research instead of generic chat
+    if (/\b(what is|what's|who is|who's|where is|when did|when was|how does|how do|tell me about|explain)\b/i.test(t)) {
+      if (!/\b(feel|feeling|should I|my life|my day|I am feeling|I'm feeling)\b/i.test(t)) return true;
     }
+    if (/\b(difference between|compare|pros and cons|history of|meaning of)\b/i.test(t)) return true;
     return false;
   }
   function fetchJson(url, timeout) {
@@ -6749,7 +6751,8 @@
       "You are Bob v" + VERSION + ", Tristan's personal AI companion (browser app with optional backend). " +
       "Always address the user as Tristan. You learn, remember, and improve over time.\n" +
       style +
-      "Priorities: (1) be useful and specific (2) use CORE CONTEXT + pinned memory (3) admit uncertainty (4) prefer action.\n" +
+      "Priorities: (1) READ the user message and ANSWER that exact question (2) think briefly then respond (3) be useful and specific (4) use CORE CONTEXT + memory (5) admit uncertainty (6) prefer action.\n" +
+      "Never reply with only generic empathy or filler. If they asked a question, the first lines must address it.\n" +
       (s.cotEnabled !== false
         ? "When the question is complex, reason step by step briefly, then give the final answer.\n"
         : "") +
@@ -7009,6 +7012,148 @@
     if (kinds.length) out += "\n\n_Looked at: " + kinds.join(", ") + "_";
     return out;
   }
+
+
+
+  /**
+   * Read the question → think → answer that question (local, no fluff-first).
+   */
+  function buildThoughtfulAnswer(userText, name, stage, rules) {
+    var raw = String(userText || "").trim();
+    var lower = raw.toLowerCase();
+    name = name || "Tristan";
+
+    if (/^(hi|hello|hey|yo|sup)\b/i.test(lower) && lower.length < 24) {
+      return "Hi " + name + ". What do you want to work on or figure out?";
+    }
+    if (/thank|thanks|thx|appreciate/i.test(lower) && lower.length < 40) {
+      return "You're welcome, " + name + ".";
+    }
+
+    var expr = raw.match(/(\d+(?:\.\d+)?\s*[\+\-\*\/×÷x]\s*\d+(?:\.\d+)?(?:\s*[\+\-\*\/×÷x]\s*\d+(?:\.\d+)?)*)/);
+    if (expr && typeof evalSimpleMath === "function") {
+      var val = evalSimpleMath(expr[1]);
+      if (val !== null) {
+        return "You asked about **" + expr[1].trim() + "**.\n\n**Answer: " + val + "**\n\n(Order of operations: ×÷ before +-.)";
+      }
+    }
+
+    if (/\b(what time|current time|time is it|what's the time|whats the time)\b/i.test(lower)) {
+      if (typeof formatLocalNow === "function") {
+        return "Local time (" + (typeof getTimezone === "function" ? getTimezone() : "") + "): **" + formatLocalNow() + "**.";
+      }
+    }
+    if (/\b(what day|what's the date|whats the date|date today)\b/i.test(lower)) {
+      if (typeof formatLocalNow === "function") {
+        return "Today is **" + formatLocalNow() + "**.";
+      }
+    }
+
+    if (/what do you know about me|what have you learned|what do you remember/i.test(lower)) {
+      if (typeof buildMemory === "function") return buildMemory(name, stage || getStage());
+    }
+
+    if (/^how (do|to|can|should)\b/i.test(lower) || /\bhow do i\b/i.test(lower)) {
+      var goal = raw.replace(/^how (do i|do you|to|can i|should i)\s+/i, "").replace(/\?$/, "").trim();
+      return [
+        "You asked how to **" + (goal || "do that") + "**.",
+        "",
+        "**Approach:**",
+        "1. Clarify the exact outcome you want.",
+        "2. Break it into the smallest next action you can do today.",
+        "3. Do that step, then adjust.",
+        "",
+        "Share constraints (time, tools, level) and I'll make this more specific.",
+        "",
+        "_Say **research: " + (goal || "topic").slice(0, 40) + "** for sources, or enable an AI backend for deeper help._"
+      ].join("\n");
+    }
+
+    if (/^why\b/i.test(lower) || /\bwhy (is|are|do|does|did|can|should)\b/i.test(lower)) {
+      return [
+        "You're asking **why** — I'll stay on that question.",
+        "",
+        "Without inventing fake detail:",
+        "1. Factual \"why\" (science/history) → say **research: " + raw.replace(/\?/g, "").slice(0, 50) + "** for sources.",
+        "2. Personal \"why\" → give the situation in one sentence and I'll reason with you.",
+        "",
+        "Which kind is this — factual or personal?"
+      ].join("\n");
+    }
+
+    if (/^(what is|what's|whats|who is|who's|whos|what are|where is)\b/i.test(lower)) {
+      var topic = raw.replace(/^(what is|what's|whats|who is|who's|whos|what are|where is)\s+/i, "").replace(/\?+$/, "").trim();
+      var memBits = [];
+      try {
+        if (typeof retrieveMemory === "function") {
+          var hits = retrieveMemory(topic || raw, 3);
+          (hits || []).forEach(function(h) {
+            if (h && h.item && h.item.text && h.score > 0.3) memBits.push(h.item.text.slice(0, 120));
+          });
+        }
+      } catch (e) {}
+      var out = ["You asked: **" + raw + "**", "", "I should ground this in facts, not filler."];
+      if (memBits.length) {
+        out.push("", "From memory:");
+        memBits.forEach(function(m) { out.push("• " + m); });
+      }
+      out.push("", "Say **research: " + (topic || raw).slice(0, 60) + "** and I'll look it up with sources.");
+      out.push("Or enable an AI backend in Settings for a full explanation in one step.");
+      return out.join("\n");
+    }
+
+    var memLine = "";
+    try {
+      if (typeof memoryContextFor === "function") {
+        var mc = memoryContextFor(raw);
+        if (mc && mc.hits && mc.hits[0] && mc.hits[0].score > 0.4) {
+          memLine = mc.hits[0].item && mc.hits[0].item.text;
+        }
+      }
+    } catch (e2) {}
+
+    var isQ = /\?/.test(raw) || /^(who|what|when|where|why|how|is|are|can|do|does|did|will|should)\b/i.test(lower);
+    if (isQ) {
+      var parts = [];
+      parts.push("**Your question:** " + raw);
+      parts.push("");
+      if (memLine) {
+        parts.push("Related to what I know: " + memLine.slice(0, 160));
+        parts.push("");
+      }
+      parts.push("**Answer (best I can do locally):**");
+      if (/goal|plan|should i|what should/i.test(lower) && state.goals && state.goals[0]) {
+        parts.push("Given your goal **" + state.goals[0].slice(0, 60) + "**, take the smallest next step toward that — not more planning only.");
+      } else if (/prefer|like|favorite/i.test(lower) && state.preferences && state.preferences[0]) {
+        parts.push("From what you've shared, you care about **" + state.preferences[0] + "**.");
+      } else {
+        parts.push("I read your question and I'm answering it — not dodging with small talk.");
+        parts.push("For a fuller factual answer, say **research** or enable an AI backend in Settings. Or add one constraint so I can be more specific.");
+      }
+      if (rules && rules[0]) {
+        parts.push("");
+        parts.push("_Keeping in mind: " + String(rules[0]).slice(0, 80) + "_");
+      }
+      parts.push("");
+      parts.push("If that missed the mark, rephrase with the exact outcome you want.");
+      return parts.join("\n");
+    }
+
+    var reply = [];
+    reply.push("I heard you: \"" + raw.slice(0, 180) + (raw.length > 180 ? "…" : "") + "\"");
+    reply.push("");
+    if (memLine) {
+      reply.push("Connecting to earlier context: " + memLine.slice(0, 140));
+      reply.push("");
+    }
+    if (state.moods && state.moods[0] && /feel|tired|stress|sad|happy|anxious/i.test(lower)) {
+      reply.push("You're describing something in the **" + state.moods[0] + "** range. What would \"slightly better\" look like in the next hour?");
+    } else {
+      reply.push("What do you want from me on this — a plan, research, a yes/no, or to think it through with you?");
+    }
+    return reply.join("\n");
+  }
+
 
   function buildVariedReply(userText, name, stage, rules) {
     var lower = userText.toLowerCase().trim();
@@ -7395,10 +7540,14 @@
     var s = state.settings || {};
     if (s.cotEnabled === false) return wantsExplicitCoT(text);
     if (wantsExplicitCoT(text)) return true;
-    // Complex / multi-part questions
-    if (/\b(why|how|explain|compare|analyze|plan|design|debug|prove|derive)\b/i.test(text)) return true;
-    if ((text.match(/\?/g) || []).length >= 2) return true;
-    if (text && text.length > 120) return true;
+    var t = String(text || "").trim();
+    if (!t) return false;
+    // Think before answering most real questions and tasks
+    if (/\?/.test(t)) return true;
+    if (/^(who|what|when|where|why|how|is|are|can|do|does|did|will|should|could|would|explain|tell me|help me|calculate|solve|compare|plan)\b/i.test(t)) return true;
+    if (/\b(why|how|explain|compare|analyze|plan|design|debug|prove|derive|because)\b/i.test(t)) return true;
+    if ((t.match(/\?/g) || []).length >= 1) return true;
+    if (t.length > 80) return true;
     return false;
   }
 
@@ -7451,7 +7600,8 @@
       }
     } catch (e) {}
 
-    steps.push("Answer Tristan clearly, with next step if useful.");
+    steps.push("Form a direct answer to that exact ask (not a generic reply).");
+    steps.push("Answer Tristan clearly first, then add only useful detail.");
     return steps;
   }
 
@@ -7976,9 +8126,16 @@
       }
     }
 
-    // Fallback simple AI (no tools)
-    const ai = await callAI(userText);
-    if (ai) { selfImprove(); return ai; }
+    // Fallback AI — force answer-focused prompt for questions
+    var aiQuery = userText;
+    if (/\?/.test(userText) || /^(who|what|when|where|why|how|is|are|can|do|does)\b/i.test(userText)) {
+      aiQuery = "Think step by step about the user's question, then give a direct answer.\n\nUser question: " + userText;
+    }
+    const ai = await callAI(aiQuery);
+    if (ai) {
+      selfImprove();
+      return attachCoT(ai, cotSteps || (typeof buildLocalCoT === "function" ? buildLocalCoT(userText) : null));
+    }
 
     // Local memory-augmented reply
     var memCtx = memoryContextFor(userText);
@@ -7990,7 +8147,20 @@
       return buildCodeReply(userText, name);
     }
 
-    var localReply = buildVariedReply(userText, name, stage, rules);
+    // Always think on questions: force CoT steps when user asked something real
+    if (!cotSteps && typeof buildLocalCoT === "function" && typeof shouldUseCoT === "function" && shouldUseCoT(userText)) {
+      cotSteps = buildLocalCoT(userText);
+    }
+    if (!cotSteps && /\?/.test(userText)) {
+      cotSteps = [
+        "Read the question carefully: " + String(userText).slice(0, 100),
+        "Decide what a direct answer looks like",
+        "Answer that — avoid generic filler"
+      ];
+    }
+    var localReply = typeof buildThoughtfulAnswer === "function"
+      ? buildThoughtfulAnswer(userText, name, stage, rules)
+      : buildVariedReply(userText, name, stage, rules);
     if (memCtx && memCtx.hits && memCtx.hits.length) {
       var top = memCtx.hits[0];
       if (top.score > 0.35 && top.item && top.item.text && localReply.indexOf(top.item.text.slice(0, 40)) === -1) {
